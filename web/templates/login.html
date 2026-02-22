@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Argus — Login</title>
+    <link rel="stylesheet" href="/static/login.css">
+</head>
+<body>
+    <div class="login-card">
+        <div class="logo">
+            <div class="logo-icon">
+                <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <ellipse cx="20" cy="20" rx="18" ry="12" stroke="#4F6BF6" stroke-width="2.5" fill="none"/>
+                    <circle cx="20" cy="20" r="6" fill="#4F6BF6"/>
+                    <circle cx="20" cy="20" r="2.5" fill="#fff"/>
+                </svg>
+            </div>
+            <h1>ARGUS</h1>
+            <p>Log Monitoring System</p>
+        </div>
+        {{if .Error}}
+        <div class="error-msg">Invalid username or password.</div>
+        {{end}}
+        <form method="POST" action="/login">
+            <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" placeholder="Enter your username" autocomplete="username" required autofocus>
+            </div>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" placeholder="Enter your password" autocomplete="current-password" required>
+            </div>
+            <button type="submit" class="btn-login">Sign In</button>
+        </form>
+    </div>
+</body>
+</html>

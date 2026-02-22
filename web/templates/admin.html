@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Argus — Log Viewer</title>
+    <link rel="stylesheet" href="/static/admin.css">
+</head>
+<body>
+    <input type="hidden" id="csrf-token" value="{{.CSRFToken}}">
+
+    <!-- Header -->
+    <header class="header">
+        <div class="header-left">
+            <h1 class="logo">ARGUS</h1>
+            <div class="stats" id="stats-bar">
+                <span class="stat-badge stat-badge-buf" title="环形缓冲区中当前存储的日志条数">
+                    <svg class="stat-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="12" height="10" rx="2"/><line x1="5" y1="6" x2="11" y2="6"/><line x1="5" y1="9" x2="9" y2="9"/></svg>
+                    Buffer <span class="stat-val stat-buf" id="stat-buffer">—</span>
+                </span>
+                <span class="stat-badge" title="累计接收并处理的日志总数">
+                    <svg class="stat-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="1 12 5 6 9 9 15 3"/></svg>
+                    Ingested <span class="stat-val" id="stat-ingest">—</span>
+                </span>
+                <span class="stat-badge stat-badge-warn" title="因通道满而丢弃的日志条数">
+                    <svg class="stat-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 1L15 14H1L8 1z"/><line x1="8" y1="6" x2="8" y2="9"/><circle cx="8" cy="11.5" r="0.5" fill="currentColor"/></svg>
+                    Dropped <span class="stat-val stat-warn" id="stat-dropped">—</span>
+                </span>
+                <span class="stat-badge stat-badge-err" title="日志解析失败的条数">
+                    <svg class="stat-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="7"/><line x1="5" y1="5" x2="11" y2="11"/><line x1="11" y1="5" x2="5" y2="11"/></svg>
+                    Errors <span class="stat-val stat-err" id="stat-errors">—</span>
+                </span>
+            </div>
+        </div>
+        <div class="header-right">
+            <button class="btn btn-auto-refresh" id="btn-auto-refresh" type="button" title="自动刷新：定时拉取最新日志">
+                <span class="auto-refresh-indicator off" id="auto-refresh-dot"></span>
+                Auto-refresh: OFF
+            </button>
+            <a href="/logout" class="btn btn-logout" title="退出登录">Logout</a>
+        </div>
+    </header>
+
+    <!-- Filter Bar -->
+    <div class="filter-bar">
+        <div class="filter-bar-inner">
+            <div class="filter-group filter-group-search">
+                <svg class="filter-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/></svg>
+                <input type="text" id="filter-query" placeholder="Search logs…" title="关键词搜索：在日志内容中匹配">
+            </div>
+            <select id="filter-level" title="按日志级别筛选">
+                <option value="">All Levels</option>
+                <option value="DEBUG">DEBUG</option>
+                <option value="INFO">INFO</option>
+                <option value="WARN">WARN</option>
+                <option value="ERROR">ERROR</option>
+                <option value="FATAL">FATAL</option>
+            </select>
+            <select id="filter-source" title="按日志来源筛选">
+                <option value="">All Sources</option>
+            </select>
+            <select id="filter-time" title="按时间范围筛选">
+                <option value="">All Time</option>
+                <option value="1" selected>Last 1 hour</option>
+                <option value="6">Last 6 hours</option>
+                <option value="24">Last 24 hours</option>
+            </select>
+            <button class="btn btn-dash-toggle" id="btn-dashboard" type="button" title="展开/收起统计面板">
+                <svg class="btn-icon" viewBox="0 0 20 20" fill="currentColor"><path d="M2 4a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 01-1 1H3a1 1 0 01-1-1V4zm5 0a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 01-1 1H8a1 1 0 01-1-1V4zm5 0a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 01-1 1h-2a1 1 0 01-1-1V4zM2 9a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 01-1 1H3a1 1 0 01-1-1V9zm5 0a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 01-1 1H8a1 1 0 01-1-1V9zm5 0a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 01-1 1h-2a1 1 0 01-1-1V9zM2 14a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 01-1 1H3a1 1 0 01-1-1v-2zm5 0a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 01-1 1H8a1 1 0 01-1-1v-2zm5 0a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 01-1 1h-2a1 1 0 01-1-1v-2z"/></svg>
+            </button>
+            <button class="btn btn-primary" id="btn-search" type="button">
+                <svg class="btn-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/></svg>
+                Search
+            </button>
+        </div>
+    </div>
+
+    <!-- Stats Dashboard -->
+    <div class="dashboard hidden" id="stats-dashboard">
+        <!-- Row 1: KPI Cards -->
+        <div class="dash-row">
+            <div class="dash-card" title="环形缓冲区使用情况：存储在内存中的日志数量及容量上限">
+                <div class="dash-card-header">Buffer Usage</div>
+                <div class="dash-card-body dash-buffer">
+                    <div class="ring-chart" id="ring-chart">
+                        <svg viewBox="0 0 120 120">
+                            <circle class="ring-bg" cx="60" cy="60" r="52" />
+                            <circle class="ring-fg" cx="60" cy="60" r="52" id="ring-fg" />
+                        </svg>
+                        <div class="ring-label" id="ring-label">0%</div>
+                    </div>
+                    <div class="dash-buffer-info">
+                        <div class="dash-kv"><span class="dash-k" title="当前缓冲区中的日志条数">Used</span><span class="dash-v" id="buf-used">—</span></div>
+                        <div class="dash-kv"><span class="dash-k" title="缓冲区最大容量（config: max_entries）">Capacity</span><span class="dash-v" id="buf-cap">—</span></div>
+                    </div>
+                </div>
+            </div>
+            <div class="dash-card" title="日志摄入统计：接收、丢弃和解析错误计数">
+                <div class="dash-card-header">Ingestion</div>
+                <div class="dash-card-body">
+                    <div class="dash-big-num" id="dash-ingest">—</div>
+                    <div class="dash-sub">total ingested</div>
+                    <div class="dash-kv-row">
+                        <div class="dash-kv"><span class="dash-k" title="因通道缓冲区满而丢弃的日志条数">Dropped</span><span class="dash-v dash-v-warn" id="dash-dropped">0</span></div>
+                        <div class="dash-kv"><span class="dash-k" title="JSON 格式解析失败的日志条数">Parse Errors</span><span class="dash-v dash-v-err" id="dash-parse-err">0</span></div>
+                    </div>
+                </div>
+            </div>
+            <div class="dash-card" title="预写日志（WAL）：持久化存储的状态信息">
+                <div class="dash-card-header">WAL Storage</div>
+                <div class="dash-card-body">
+                    <div class="dash-big-num" id="dash-wal-size">—</div>
+                    <div class="dash-sub">WAL size</div>
+                    <div class="dash-kv-row">
+                        <div class="dash-kv"><span class="dash-k" title="WAL 文件压缩合并的次数">Compactions</span><span class="dash-v" id="dash-wal-compact">0</span></div>
+                        <div class="dash-kv"><span class="dash-k" title="WAL 截断清理的次数">Truncated</span><span class="dash-v" id="dash-wal-trunc">0</span></div>
+                    </div>
+                </div>
+            </div>
+            <div class="dash-card" title="告警通知统计：发送成功/失败及队列状态">
+                <div class="dash-card-header">Alerts</div>
+                <div class="dash-card-body">
+                    <div class="dash-alert-row">
+                        <div class="dash-alert-item dash-alert-ok" title="成功发送的告警通知数"><span class="dash-alert-num" id="dash-alert-ok">0</span><span class="dash-alert-label">Sent</span></div>
+                        <div class="dash-alert-item dash-alert-fail" title="发送失败的告警通知数"><span class="dash-alert-num" id="dash-alert-fail">0</span><span class="dash-alert-label">Failed</span></div>
+                    </div>
+                    <div class="dash-kv-row">
+                        <div class="dash-kv"><span class="dash-k" title="告警队列已满时被丢弃的告警数">Queue Full</span><span class="dash-v dash-v-warn" id="dash-alert-qfull">0</span></div>
+                        <div class="dash-kv"><span class="dash-k" title="因指纹去重而跳过的重复告警数">Deduped</span><span class="dash-v" id="dash-alert-dedup">0</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Row 2: Distribution Charts -->
+        <div class="dash-row">
+            <div class="dash-card dash-card-wide" title="各日志级别的数量分布，点击可快速筛选">
+                <div class="dash-card-header">Level Distribution</div>
+                <div class="dash-card-body" id="chart-levels"></div>
+            </div>
+            <div class="dash-card dash-card-wide" title="各日志来源文件的数量分布，点击可快速筛选">
+                <div class="dash-card-header">Source Distribution</div>
+                <div class="dash-card-body" id="chart-sources"></div>
+            </div>
+        </div>
+
+        <!-- Row 3: System Health -->
+        <div class="dash-row">
+            <div class="dash-card" title="倒排索引状态：用于加速日志搜索查询">
+                <div class="dash-card-header">Index</div>
+                <div class="dash-card-body">
+                    <div class="dash-kv"><span class="dash-k" title="索引重建的累计次数">Rebuilds</span><span class="dash-v" id="dash-idx-rebuilds">0</span></div>
+                    <div class="dash-kv"><span class="dash-k" title="最近一次索引重建耗时">Last Duration</span><span class="dash-v" id="dash-idx-dur">—</span></div>
+                </div>
+            </div>
+            <div class="dash-card" title="日志采集器状态：文件和 Docker 日志源的连接情况">
+                <div class="dash-card-header">Tailer</div>
+                <div class="dash-card-body">
+                    <div class="dash-kv"><span class="dash-k" title="采集器重新连接日志源的次数">Reconnects</span><span class="dash-v" id="dash-tailer-recon">0</span></div>
+                    <div class="dash-kv"><span class="dash-k" title="Docker 日志格式解析失败的次数">Docker Errors</span><span class="dash-v" id="dash-docker-err">0</span></div>
+                </div>
+            </div>
+            <div class="dash-card" title="告警限流与超时统计">
+                <div class="dash-card-header">Throttling</div>
+                <div class="dash-card-body">
+                    <div class="dash-kv"><span class="dash-k" title="因冷却时间限制而被节流的告警数">Alert Throttled</span><span class="dash-v" id="dash-alert-throttle">0</span></div>
+                    <div class="dash-kv"><span class="dash-k" title="告警发送超时未返回结果的次数">Inflight Timeout</span><span class="dash-v" id="dash-alert-timeout">0</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Log Table -->
+    <main class="main-content">
+        <div class="table-card">
+            <table>
+                <thead>
+                    <tr>
+                        <th class="col-time" title="日志产生的时间戳">Time</th>
+                        <th class="col-level" title="日志级别：DEBUG / INFO / WARN / ERROR / FATAL">Level</th>
+                        <th class="col-service" title="产生日志的服务名称">Service</th>
+                        <th class="col-source" title="日志来源文件路径">Source</th>
+                        <th class="col-msg" title="日志消息内容（点击行可展开详情）">Message</th>
+                    </tr>
+                </thead>
+                <tbody id="log-tbody"></tbody>
+            </table>
+            <div class="empty-state hidden" id="empty-state">
+                <div class="empty-state-content">
+                    <svg class="empty-icon" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="8" y="8" width="48" height="48" rx="6"/>
+                        <line x1="20" y1="24" x2="44" y2="24"/>
+                        <line x1="20" y1="32" x2="38" y2="32"/>
+                        <line x1="20" y1="40" x2="32" y2="40"/>
+                    </svg>
+                    <p>No log entries found.</p>
+                    <span class="empty-hint">Try adjusting your filters or time range</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pagination -->
+        <div class="pagination" id="pagination">
+            <button class="btn btn-page" id="btn-prev" type="button" disabled title="上一页">
+                <svg class="btn-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                Previous
+            </button>
+            <span class="page-info" id="page-info">Page 1</span>
+            <button class="btn btn-page" id="btn-next" type="button" disabled title="下一页">
+                Next
+                <svg class="btn-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/></svg>
+            </button>
+        </div>
+    </main>
+
+    <script src="/static/admin.js"></script>
+</body>
+</html>
