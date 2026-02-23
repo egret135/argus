@@ -1,0 +1,31 @@
+sources:
+  - type: file
+    path: /var/log/app/order-api.log
+  - type: file
+    path: /var/log/app/user-service.log
+  # - type: docker
+  #   container: my-api
+
+storage:
+  max_entries: 50000
+  data_dir: ./data
+  wal_compact_threshold: 60000
+  checkpoint_interval: 5s
+  index_rebuild_interval: 10000
+  index_rebuild_max_interval: 30s
+
+alert:
+  feishu:
+    webhook_url: "https://open.feishu.cn/open-apis/bot/v2/hook/your-hook-id"
+    secret: "your-signing-secret"
+  cooldown: 60s
+  max_retries: 5
+
+server:
+  addr: ":8080"
+  base_url: "http://localhost:8080"
+
+auth:
+  username: admin
+  password_hash: "$2a$10$..."  # 使用 htpasswd -nbBC 10 "" your-password | cut -d: -f2 生成
+  jwt_secret: ""               # 留空则首次启动自动生成
