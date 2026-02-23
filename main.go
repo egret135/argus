@@ -167,7 +167,12 @@ func main() {
 	}
 
 	httpServer := &http.Server{
-		Handler: router,
+		Handler:           router,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      60 * time.Second,
+		IdleTimeout:       120 * time.Second,
+		MaxHeaderBytes:    1 << 20, // 1MB
 	}
 	go func() {
 		if err := httpServer.Serve(ln); err != nil && err != http.ErrServerClosed {

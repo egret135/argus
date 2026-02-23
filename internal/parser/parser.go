@@ -3,7 +3,9 @@ package parser
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
+	"time"
 
 	"github.com/admin/argus/internal/model"
 )
@@ -24,6 +26,11 @@ func Parse(line []byte, source string) (model.LogEntry, error) {
 
 	if entry.Timestamp == "" {
 		return model.LogEntry{}, errors.New("missing required field: timestamp")
+	}
+	if _, err := time.Parse(time.RFC3339Nano, entry.Timestamp); err != nil {
+		if _, err := time.Parse(time.RFC3339, entry.Timestamp); err != nil {
+			return model.LogEntry{}, fmt.Errorf("invalid timestamp format (expected RFC3339): %s", entry.Timestamp)
+		}
 	}
 	if entry.Level == "" {
 		return model.LogEntry{}, errors.New("missing required field: level")

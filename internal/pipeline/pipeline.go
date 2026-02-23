@@ -272,10 +272,9 @@ func computeFingerprint(entry model.LogEntry) string {
 // triggerIndexRebuild starts an asynchronous index rebuild if one is not
 // already in progress. Returns true if a rebuild was started.
 func (p *Pipeline) triggerIndexRebuild() bool {
-	if p.rebuildInProgress.Load() {
+	if !p.rebuildInProgress.CompareAndSwap(false, true) {
 		return false
 	}
-	p.rebuildInProgress.Store(true)
 
 	snapshot, tailSeq := p.ring.SnapshotLite()
 	go func() {

@@ -44,7 +44,12 @@ func BuildIndex(entries []model.EntryLite, tailSeq uint64) *IndexSnapshot {
 		e := &entries[i]
 		seq := e.SeqID
 
+		seen := make(map[string]struct{})
 		for _, tok := range tokenize(e.Message) {
+			if _, ok := seen[tok]; ok {
+				continue
+			}
+			seen[tok] = struct{}{}
 			idx.Inverted[tok] = append(idx.Inverted[tok], seq)
 		}
 
@@ -70,6 +75,9 @@ func (idx *IndexSnapshot) Search(query string, level string, source string) []ui
 			return nil
 		}
 		result = idx.Inverted[tokens[0]]
+		if result == nil {
+			return nil
+		}
 		for _, tok := range tokens[1:] {
 			result = intersect(result, idx.Inverted[tok])
 			if len(result) == 0 {

@@ -33,10 +33,12 @@ const (
 func dockerHTTPClient() *http.Client {
 	return &http.Client{
 		Transport: &http.Transport{
-			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
-				return net.Dial("unix", dockerSocket)
+			DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+				var d net.Dialer
+				return d.DialContext(ctx, "unix", dockerSocket)
 			},
 		},
+		Timeout: 0, // no overall timeout since we stream logs
 	}
 }
 

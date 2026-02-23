@@ -205,6 +205,10 @@ func (ft *FileTailer) readLines(f *os.File) {
 		}
 	}
 
+	if err := scanner.Err(); err != nil {
+		log.Printf("tailer: scan %s: %v", ft.path, err)
+	}
+
 	pos, err := f.Seek(0, io.SeekCurrent)
 	if err == nil {
 		info, sErr := f.Stat()

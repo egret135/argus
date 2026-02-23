@@ -71,8 +71,20 @@ func SaveCheckpoint(dataDir string, cp *Checkpoint) error {
 	}
 
 	tmpPath := filepath.Join(dataDir, checkpointTmp)
-	if err := os.WriteFile(tmpPath, data, 0o644); err != nil {
+	f, err := os.OpenFile(tmpPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
+	if err != nil {
+		return fmt.Errorf("checkpoint: create %s: %w", tmpPath, err)
+	}
+	if _, err := f.Write(data); err != nil {
+		f.Close()
 		return fmt.Errorf("checkpoint: write %s: %w", tmpPath, err)
+	}
+	if err := f.Sync(); err != nil {
+		f.Close()
+		return fmt.Errorf("checkpoint: fsync %s: %w", tmpPath, err)
+	}
+	if err := f.Close(); err != nil {
+		return fmt.Errorf("checkpoint: close %s: %w", tmpPath, err)
 	}
 
 	finalPath := filepath.Join(dataDir, checkpointFile)

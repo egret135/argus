@@ -76,6 +76,7 @@ func (h *Handler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 			Value:    token,
 			Path:     "/",
 			HttpOnly: true,
+			Secure:   true,
 			SameSite: http.SameSiteStrictMode,
 			MaxAge:   86400,
 		})
@@ -231,13 +232,62 @@ func (h *Handler) HandleAPILogs(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	hasFilter := query != "" || level != "" || source != ""
+
+	// Fast path: no filters, reverse scan from tail.
+	if !hasFilter && timeAfter == "" {
+		rb := h.pipeline.GetRingBuffer()
+		tail := rb.Tail()
+		head := rb.Head()
+		if tail == 0 || head == tail {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(logResponse{Logs: []logEntry{}})
+			return
+		}
+
+		upper := tail
+		if hasBefore {
+			if beforeSeq < upper {
+				upper = beforeSeq
+			}
+		}
+		lower := head
+		if hasAfter {
+			if afterSeq+1 > lower {
+				lower = afterSeq + 1
+			}
+		}
+
+		collect := limit + 1
+		if int(upper-lower) < collect {
+			collect = int(upper - lower)
+		}
+
+		logs := make([]logEntry, 0, min(collect, limit+1))
+		for seq := upper; seq > lower && len(logs) < limit+1; {
+			seq--
+			entry, ok := rb.Read(seq)
+			if !ok {
+				continue
+			}
+			logs = append(logs, toLogEntry(entry))
+		}
+
+		hasMore := len(logs) > limit
+		if hasMore {
+			logs = logs[:limit]
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(logResponse{Logs: logs, HasMore: hasMore})
+		return
+	}
+
 	idx := h.pipeline.GetIndex()
 	rb := h.pipeline.GetRingBuffer()
 
 	var matched []model.LogEntry
 	expired := false
-
-	hasFilter := query != "" || level != "" || source != ""
 
 	// Phase 1: Index search for [head, TailSeq).
 	if idx != nil && hasFilter {

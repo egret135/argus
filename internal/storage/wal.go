@@ -13,8 +13,9 @@ import (
 const (
 	walFileName   = "wal.dat"
 	walNewName    = "wal.new"
-	walHeaderSize = 8 // 4 bytes length + 4 bytes CRC32
-	walSepSize    = 1 // trailing \n
+	walHeaderSize  = 8 // 4 bytes length + 4 bytes CRC32
+	walSepSize     = 1 // trailing \n
+	maxRecordSize  = 16 << 20 // 16 MB
 )
 
 // WAL implements a write-ahead log with CRC32-verified records.
@@ -148,6 +149,15 @@ func (w *WAL) Replay(upToOffset int64, fn func(seqNum int, payload []byte) error
 
 		n := binary.LittleEndian.Uint32(header[0:4])
 		expectedCRC := binary.LittleEndian.Uint32(header[4:8])
+
+		if n > maxRecordSize {
+			fmt.Fprintf(os.Stderr, "WARNING: wal: record size %d exceeds max %d at offset %d, truncating\n",
+				n, maxRecordSize, offset)
+			if tErr := w.truncate(offset, count, offsetIndex); tErr != nil {
+				return count, tErr
+			}
+			break
+		}
 
 		// Read payload + separator.
 		recordBody := make([]byte, int(n)+walSepSize)
