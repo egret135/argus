@@ -207,33 +207,33 @@ func main() {
 		os.Exit(1)
 	}()
 
-	// Graceful shutdown sequence (design section 10):
+	// Graceful shutdown sequence:
 
-	// Step 1: Cancel context & alert worker.
-	cancel()
-	alertCancel()
-
-	// Step 2: Stop tailer manager (cancels all tailers, waits with timeout).
-	mgr.Stop()
-
-	// Step 3: Close logChan — safe now that tailers have stopped.
-	close(logChan)
-
-	// Step 4: Wait for pipeline run loop to exit (drains remaining logChan then returns).
-	waitWithTimeout(&pipelineWg, 5*time.Second)
-
-	// Step 5: Wait for alert worker (timeout 3s).
-	waitWithTimeout(&alertWg, 3*time.Second)
-
-	// Step 6: Pipeline.Shutdown() — fsync WAL, write final checkpoint.
-	p.Shutdown()
-
-	// Step 7: Shutdown HTTP server (timeout 5s).
+	// Step 1: Stop accepting new HTTP requests.
 	httpCtx, httpCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer httpCancel()
 	if err := httpServer.Shutdown(httpCtx); err != nil {
 		logJSON("error", "HTTP server shutdown error", "error", err.Error())
 	}
+
+	// Step 2: Cancel context & alert worker.
+	cancel()
+	alertCancel()
+
+	// Step 3: Stop tailer manager (cancels all tailers, waits with timeout).
+	mgr.Stop()
+
+	// Step 4: Close logChan — safe now that tailers have stopped.
+	close(logChan)
+
+	// Step 5: Wait for pipeline run loop to exit (drains remaining logChan then returns).
+	waitWithTimeout(&pipelineWg, 5*time.Second)
+
+	// Step 6: Wait for alert worker (timeout 3s).
+	waitWithTimeout(&alertWg, 3*time.Second)
+
+	// Step 7: Pipeline.Shutdown() — fsync WAL, write final checkpoint, close WAL file.
+	p.Shutdown()
 
 	logJSON("info", "shutdown complete")
 }

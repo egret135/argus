@@ -25,7 +25,11 @@ go build -o argus .
 
 ### 配置
 
-编辑 `config.yaml`：
+复制示例配置并编辑：
+
+```bash
+cp config.example.yaml config.yaml
+```
 
 ```yaml
 sources:
@@ -147,8 +151,8 @@ HTTP Server ◄──── RingBuffer + Index ──┘
 ```
 argus/
 ├── main.go                     # 入口，组装各模块
-├── config.yaml                 # 配置文件
-├── DESIGN.md                   # 详细设计文档
+├── config.example.yaml         # 示例配置文件
+├── Dockerfile                  # 多阶段构建
 ├── internal/
 │   ├── config/                 # 配置加载与校验
 │   ├── tailer/                 # 日志采集 (文件 + Docker)
@@ -195,12 +199,22 @@ WantedBy=multi-user.target
 ### Docker
 
 ```bash
+# 构建镜像
+docker build -t argus .
+
+# 运行
 docker run -d \
-  -v /var/log/app:/var/log/app:ro \
-  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v /path/to/config.yaml:/app/config.yaml:ro \
   -v /data/argus:/app/data \
+  -v /var/log/app:/var/log/app:ro \
   -p 8080:8080 \
-  argus -config /app/config.yaml
+  argus
+```
+
+采集 Docker 容器日志时需额外挂载：
+
+```bash
+-v /var/run/docker.sock:/var/run/docker.sock
 ```
 
 ## 性能指标

@@ -1,0 +1,6 @@
+argus
+data/
+config.yaml
+DESIGN.md
+.git/
+.DS_Store

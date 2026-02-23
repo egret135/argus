@@ -377,4 +377,5 @@ drained:
 done:
 	_ = p.wal.Sync()
 	p.saveCheckpoint()
+	_ = p.wal.Close()
 }
